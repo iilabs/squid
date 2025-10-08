@@ -1,0 +1,28 @@
+services:
+  squid:
+    image: satishweb/squid-ssl-proxy:latest
+    container_name: squid-ssl-proxy
+    restart: unless-stopped
+    environment:
+      CERT_CN: ii.coop
+      CERT_ORG: iilabs
+      CERT_OU: squid
+      CERT_COUNTRY: US
+      SQUID_PROXY_PORT: 3128
+      SQUID_PROXY_SSLBUMP_PORT: 4128
+      # Optional: enable entrypoint debugging
+      # DEBUG: "1"
+    ports:
+      - "3128:3128"
+      - "4128:4128"
+    volumes:
+      - ./config/squid.sample.conf:/templates/squid.sample.conf:Z,ro
+      - ./config/conf.d:/etc/squid/conf.d:Z
+      - ./config/ca:/etc/squid-cert:Z
+      - ./state/cache:/var/cache/squid:Z
+      - ./state/log:/var/log/squid:Z
+    # Uncomment to force container DNS resolution through a specific server
+    # dns:
+    #   - 1.1.1.1
+
+volumes: {}
