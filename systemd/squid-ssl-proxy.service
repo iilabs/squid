@@ -1,0 +1,70 @@
+[Unit]
+Description=Squid SSL Proxy (satishweb container)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Environment="IMAGE=satishweb/squid-ssl-proxy:latest"
+Environment="NAME=squid-ssl-proxy"
+Environment="CERT_CN=ii.coop"
+Environment="CERT_ORG=iilabs"
+Environment="CERT_OU=squid"
+Environment="CERT_COUNTRY=US"
+Environment="PROXY_PORT=3128"
+Environment="SSL_BUMP_PORT=4128"
+
+# 1) Ensure host directories exist
+ExecStartPre=/usr/bin/bash -c '\
+  for d in /etc/squid /etc/squid/ca /etc/squid/conf.d /var/cache/squid-ssl-proxy /var/log/squid-ssl-proxy; do \
+    mkdir -p "$d"; \
+  done'
+
+# 2) Ensure the template is available (copy from image if missing)
+ExecStartPre=/usr/bin/bash -c '\
+  if [ ! -f /etc/squid/squid.envsubst.conf ]; then \
+    /usr/bin/podman rm -f ${NAME}-tmpl >/dev/null 2>&1 || true; \
+    /usr/bin/podman create --name ${NAME}-tmpl ${IMAGE} >/dev/null; \
+    /usr/bin/podman cp ${NAME}-tmpl:/templates/squid.sample.conf /etc/squid/squid.envsubst.conf; \
+    /usr/bin/podman rm -f ${NAME}-tmpl >/dev/null; \
+  fi'
+
+# 3) Pull image only when missing (avoid hitting rate limits)
+ExecStartPre=/usr/bin/bash -c '\
+  if ! /usr/bin/podman image exists ${IMAGE}; then \
+    /usr/bin/podman pull ${IMAGE}; \
+  fi'
+
+# 4) Run the container
+ExecStart=/usr/bin/podman run --name ${NAME} --replace \
+  --tty --restart=always \
+  -p ${PROXY_PORT}:${PROXY_PORT} -p ${SSL_BUMP_PORT}:${SSL_BUMP_PORT} \
+  -e CERT_CN=${CERT_CN} \
+  -e CERT_ORG=${CERT_ORG} \
+  -e CERT_OU=${CERT_OU} \
+  -e CERT_COUNTRY=${CERT_COUNTRY} \
+  -e SQUID_PROXY_PORT=${PROXY_PORT} \
+  -e SQUID_PROXY_SSLBUMP_PORT=${SSL_BUMP_PORT} \
+  -v /etc/squid/squid.envsubst.conf:/templates/squid.sample.conf:Z,ro \
+  -v /etc/squid/ca:/etc/squid-cert:Z \
+  -v /etc/squid/conf.d:/etc/squid/conf.d:Z \
+  -v /var/cache/squid-ssl-proxy:/var/cache/squid:Z \
+  -v /var/log/squid-ssl-proxy:/var/log/squid:Z \
+  ${IMAGE}
+
+# 5) Install CA into host trust store on RPM family systems
+ExecStartPost=/usr/bin/bash -c '\
+  if [ -f /etc/squid/ca/CA.pem ]; then \
+    install -m0644 /etc/squid/ca/CA.pem /etc/pki/ca-trust/source/anchors/squid-ssl-bump.pem && \
+    /usr/bin/update-ca-trust extract; \
+  fi'
+
+ExecStop=/usr/bin/podman stop -t 10 ${NAME}
+ExecStopPost=/usr/bin/podman rm -f ${NAME}
+
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
