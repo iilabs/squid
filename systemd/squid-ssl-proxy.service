@@ -12,6 +12,10 @@ Environment="CERT_OU=squid"
 Environment="CERT_COUNTRY=US"
 Environment="PROXY_PORT=3128"
 Environment="SSL_BUMP_PORT=4128"
+Environment="SQUID_CACHE_BACKEND=ufs"
+Environment="SQUID_CACHE_SIZE_MB=1048576"
+Environment="SQUID_CACHE_MEM_MB=8192"
+Environment="SQUID_MAX_OBJ_IN_MEM_MB=64"
 
 # 1) Ensure host directories exist
 ExecStartPre=/usr/bin/bash -c '\
@@ -44,6 +48,10 @@ ExecStart=/usr/bin/podman run --name ${NAME} --replace \
   -e CERT_COUNTRY=${CERT_COUNTRY} \
   -e SQUID_PROXY_PORT=${PROXY_PORT} \
   -e SQUID_PROXY_SSLBUMP_PORT=${SSL_BUMP_PORT} \
+  -e SQUID_CACHE_BACKEND=${SQUID_CACHE_BACKEND} \
+  -e SQUID_CACHE_SIZE_MB=${SQUID_CACHE_SIZE_MB} \
+  -e SQUID_CACHE_MEM_MB=${SQUID_CACHE_MEM_MB} \
+  -e SQUID_MAX_OBJ_IN_MEM_MB=${SQUID_MAX_OBJ_IN_MEM_MB} \
   -v /etc/squid/squid.envsubst.conf:/templates/squid.sample.conf:Z,ro \
   -v /etc/squid/ca:/etc/squid-cert:Z \
   -v /etc/squid/conf.d:/etc/squid/conf.d:Z \

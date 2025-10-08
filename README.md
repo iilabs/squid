@@ -55,12 +55,22 @@ Key bind mounts:
 ### 3. Customise the proxy (optional)
 - Edit `config/squid.sample.conf` before starting to adjust defaults.
 - Drop additional `.conf` files into `config/conf.d/`; the template includes `/etc/squid/conf.d/*.conf` automatically.
+- Leverage `config/conf.d/cache_tuning.conf` for 1-year retention of container layers, RPM/DEB payloads, and OSTree objects; pair with `config/conf.d/offline_build_tweaks.conf` to enable offline-friendly policies (`offline_mode`, LFUDA, `collapsed_forwarding`).
+- Tune the on-disk cache budget by editing `SQUID_CACHE_SIZE_MB` in `compose.yaml` (default `1048576`, i.e., ~1 TB). Squid expects a concrete megabyte value rather than a percentage of free space.
+- Switch storage schema by changing `SQUID_CACHE_BACKEND` (`ufs` works well for large objects; test `rock` if you prefer the newer storage manager).
+- Adjust in-memory caching via `SQUID_CACHE_MEM_MB` (default `8192` MB) and `SQUID_MAX_OBJ_IN_MEM_MB` (default `64` MB). Larger boxes (e.g., 96–128 GB RAM) usually benefit from pushing `SQUID_CACHE_MEM_MB` to 16384–32768 MB so frequently requested layers stay hot.
 - Override certificate metadata or ports via environment variables in `compose.yaml`.
 
 ## Systemd Unit Workflow
 
 ### 1. Review configuration
 Adjust defaults in `config/squid.sample.conf` and drop any desired snippets into `config/conf.d/`.
+
+- `config/conf.d/cache_tuning.conf` ships refresh patterns that pin container layers, RPM/DEB artifacts, and OSTree objects in cache for one year.
+- `config/conf.d/offline_build_tweaks.conf` enables offline-friendly directives such as `offline_mode on`, LFUDA cache replacement, and `collapsed_forwarding on`.
+- Adjust the cache footprint by editing the unit’s `Environment="SQUID_CACHE_SIZE_MB=1048576"` line (value is in megabytes; Squid does not accept percentages). Restart the service after modifying it.
+- Change `SQUID_CACHE_BACKEND` (`ufs` by default) if you want to experiment with different storage managers.
+- Size the memory cache through `Environment="SQUID_CACHE_MEM_MB=8192"` and set `Environment="SQUID_MAX_OBJ_IN_MEM_MB=64"` to control the largest fully in-memory object served from RAM. On 96–128 GB hosts, values of 16384–32768 MB are common starting points (leave headroom for the OS and build workloads).
 
 Edit `systemd/squid-ssl-proxy.service` if you need to change certificate subject values, ports, image tag, DNS settings, or add extra `podman run` options.
 
@@ -141,4 +151,3 @@ See `PROXY_ENV.md` for approaches to set those variables globally.
 
 - Inspect runtime logs: `podman logs -f squid-ssl-proxy`, `podman exec -it squid-ssl-proxy tail -n50 /var/log/squid/cache.log`.
 - Validate proxying: `curl -x http://squid.host.local:3128 https://registry-1.docker.io/v2/ -I`.
-

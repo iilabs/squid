@@ -10,6 +10,10 @@ services:
       CERT_COUNTRY: US
       SQUID_PROXY_PORT: 3128
       SQUID_PROXY_SSLBUMP_PORT: 4128
+      SQUID_CACHE_BACKEND: ufs
+      SQUID_CACHE_SIZE_MB: "1048576"
+      SQUID_CACHE_MEM_MB: "8192"
+      SQUID_MAX_OBJ_IN_MEM_MB: "64"
       # Optional: enable entrypoint debugging
       # DEBUG: "1"
     ports:
